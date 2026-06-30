@@ -19,6 +19,218 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─────────────────────── 3D ANIMATED BACKGROUND ───────────────────
+st.markdown("""
+<canvas id="bg3d"></canvas>
+<script>
+(function(){
+  const canvas = document.getElementById('bg3d');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+
+  // Full screen fixed behind everything
+  Object.assign(canvas.style, {
+    position: 'fixed', top: '0', left: '0',
+    width: '100vw', height: '100vh',
+    zIndex: '0', pointerEvents: 'none',
+  });
+
+  function resize() {
+    canvas.width  = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const N_NODES  = 70;
+  const N_CUBES  = 8;
+  const TEAL     = 'rgba(2,128,144,';
+  const MINT     = 'rgba(2,195,154,';
+  const CYAN     = 'rgba(126,207,223,';
+
+  // ── Floating nodes (particle network) ──
+  const nodes = Array.from({length: N_NODES}, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    z: Math.random(),           // depth 0–1
+    vx: (Math.random()-.5)*.4,
+    vy: (Math.random()-.5)*.4,
+    vz: (Math.random()-.5)*.003,
+    r: 1.5 + Math.random()*2,
+  }));
+
+  // ── 3D Wireframe cubes ──
+  function makeCube(cx, cy, size, rx, ry, vx, vy, vrx, vry, alpha) {
+    return { cx, cy, size, rx, ry, vx, vy, vrx, vry, alpha };
+  }
+  const cubes = [
+    makeCube(120, 160, 55, .3, .5, .15, .10, .008, .005, .18),
+    makeCube(window.innerWidth*.8, 90, 40, .8, .2, -.12, .08, .006, .009, .13),
+    makeCube(window.innerWidth*.6, window.innerHeight*.7, 65, .1, .9, .10,-.12, .007, .006, .15),
+    makeCube(window.innerWidth*.15,window.innerHeight*.75,35,.5,.3, -.10, .10, .009, .007, .12),
+    makeCube(window.innerWidth*.9, window.innerHeight*.5, 48, .2,.7,-.08,-.10, .005, .008, .14),
+    makeCube(window.innerWidth*.45,window.innerHeight*.1, 42, .7,.1, .12, .06, .007, .010, .13),
+    makeCube(window.innerWidth*.3, window.innerHeight*.4, 30, .4,.6, .08,-.08, .010, .006, .10),
+    makeCube(window.innerWidth*.72,window.innerHeight*.85,50, .6,.4,-.10, .09, .006, .008, .14),
+  ];
+
+  // Project 3D point onto 2D
+  function project3D(x, y, z, cx, cy, size) {
+    const fov = 300;
+    const scale = fov / (fov + z * size * 1.5);
+    return { x: cx + x * scale, y: cy + y * scale, s: scale };
+  }
+
+  // Draw a wireframe cube
+  function drawCube(c) {
+    const s = c.size;
+    const pts3 = [
+      [-s,-s,-s],[ s,-s,-s],[ s, s,-s],[-s, s,-s],
+      [-s,-s, s],[ s,-s, s],[ s, s, s],[-s, s, s],
+    ];
+    const cosx=Math.cos(c.rx), sinx=Math.sin(c.rx);
+    const cosy=Math.cos(c.ry), siny=Math.sin(c.ry);
+
+    const pts2 = pts3.map(([px,py,pz]) => {
+      // rotate X
+      let ty = py*cosx - pz*sinx, tz = py*sinx + pz*cosx;
+      // rotate Y
+      let tx = px*cosy + tz*siny; tz = -px*siny + tz*cosy;
+      return project3D(tx, ty, tz, c.cx, c.cy, 1);
+    });
+
+    const edges = [
+      [0,1],[1,2],[2,3],[3,0],
+      [4,5],[5,6],[6,7],[7,4],
+      [0,4],[1,5],[2,6],[3,7],
+    ];
+
+    ctx.strokeStyle = TEAL + c.alpha + ')';
+    ctx.lineWidth   = 1;
+    ctx.shadowColor = MINT + '0.6)';
+    ctx.shadowBlur  = 8;
+    edges.forEach(([a,b]) => {
+      ctx.beginPath();
+      ctx.moveTo(pts2[a].x, pts2[a].y);
+      ctx.lineTo(pts2[b].x, pts2[b].y);
+      ctx.stroke();
+    });
+    ctx.shadowBlur = 0;
+
+    // Corner dots
+    pts2.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 2, 0, Math.PI*2);
+      ctx.fillStyle = MINT + (c.alpha*1.5) + ')';
+      ctx.fill();
+    });
+  }
+
+  // Animate floating triangles
+  const tris = Array.from({length:12}, () => ({
+    x: Math.random()*window.innerWidth,
+    y: Math.random()*window.innerHeight,
+    size: 15 + Math.random()*30,
+    rot: Math.random()*Math.PI*2,
+    vx: (Math.random()-.5)*.3,
+    vy: (Math.random()-.5)*.3,
+    vr: (Math.random()-.5)*.01,
+    alpha: .04 + Math.random()*.08,
+  }));
+
+  function drawTriangle(t) {
+    const {x,y,size,rot,alpha} = t;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(rot);
+    ctx.beginPath();
+    ctx.moveTo(0, -size);
+    ctx.lineTo(size*.866, size*.5);
+    ctx.lineTo(-size*.866, size*.5);
+    ctx.closePath();
+    ctx.strokeStyle = CYAN + alpha + ')';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  let frame = 0;
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    frame++;
+
+    // ── Draw particle network ──
+    nodes.forEach(n => {
+      // Move
+      n.x += n.vx; n.y += n.vy; n.z += n.vz;
+      if (n.x<0||n.x>canvas.width)  n.vx*=-1;
+      if (n.y<0||n.y>canvas.height) n.vy*=-1;
+      if (n.z<0||n.z>1)             n.vz*=-1;
+
+      const size  = n.r * (.5 + n.z);
+      const alpha = .2 + n.z*.5;
+
+      // Draw node
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, size, 0, Math.PI*2);
+      ctx.fillStyle = MINT + alpha + ')';
+      ctx.shadowColor= MINT + '0.8)';
+      ctx.shadowBlur = 6;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+
+    // ── Draw connections between close nodes ──
+    for (let i=0; i<nodes.length; i++) {
+      for (let j=i+1; j<nodes.length; j++) {
+        const dx = nodes[i].x - nodes[j].x;
+        const dy = nodes[i].y - nodes[j].y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < 130) {
+          const alpha = (.35 - dist/130*.35) * (nodes[i].z+nodes[j].z)/2;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.strokeStyle = TEAL + alpha + ')';
+          ctx.lineWidth = .6;
+          ctx.stroke();
+        }
+      }
+    }
+
+    // ── Draw rotating 3D cubes ──
+    cubes.forEach(c => {
+      c.rx += c.vrx; c.ry += c.vry;
+      c.cx += c.vx;  c.cy += c.vy;
+      if (c.cx<-c.size||c.cx>canvas.width+c.size)  c.vx*=-1;
+      if (c.cy<-c.size||c.cy>canvas.height+c.size) c.vy*=-1;
+      drawCube(c);
+    });
+
+    // ── Draw floating triangles ──
+    tris.forEach(t => {
+      t.x += t.vx; t.y += t.vy; t.rot += t.vr;
+      if (t.x<-50||t.x>canvas.width+50)  t.vx*=-1;
+      if (t.y<-50||t.y>canvas.height+50) t.vy*=-1;
+      drawTriangle(t);
+    });
+
+    // ── Subtle scan line ──
+    const scanY = (frame * 1.2) % (canvas.height + 100) - 50;
+    const grad = ctx.createLinearGradient(0, scanY-30, 0, scanY+30);
+    grad.addColorStop(0,   TEAL+'0)');
+    grad.addColorStop(0.5, TEAL+'0.04)');
+    grad.addColorStop(1,   TEAL+'0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, scanY-30, canvas.width, 60);
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+</script>
+""", unsafe_allow_html=True)
+
 # ─────────────────────────── CUSTOM CSS ────────────────────────────
 st.markdown("""
 <style>
