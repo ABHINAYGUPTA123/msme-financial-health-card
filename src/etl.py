@@ -1,20 +1,30 @@
 """
 etl.py — Data Engineering layer
 --------------------------------
-Classic ETL pipeline pattern:
-
-    EXTRACT  -> read raw CSVs (stand-ins for GST/UPI/AA/EPFO API pulls)
-    TRANSFORM-> clean, validate, aggregate monthly -> per-MSME features
-    LOAD     -> write a single tidy "feature store" table (parquet/csv)
-
-This is intentionally written the way you'd structure a real pipeline:
-small, testable functions, one per source, joined on msme_id at the end.
+EXTRACT  -> read raw CSVs (stand-ins for GST/UPI/AA/EPFO API pulls)
+TRANSFORM-> clean, validate, aggregate monthly -> per-MSME features
+LOAD     -> write a single tidy "feature store" table
 """
 
+import subprocess
+import sys
 import pandas as pd
 from pathlib import Path
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+# Works both locally and on Streamlit Cloud
+ROOT_DIR = Path(__file__).parent.parent
+DATA_DIR = ROOT_DIR / "data"
+
+
+def _ensure_raw_data():
+    """Auto-generate synthetic data if raw CSVs don't exist yet."""
+    DATA_DIR.mkdir(exist_ok=True)
+    if not (DATA_DIR / "raw_gst.csv").exists():
+        # Find generate_synthetic_data.py (root or data/ folder)
+        gen_script = ROOT_DIR / "generate_synthetic_data.py"
+        if not gen_script.exists():
+            gen_script = ROOT_DIR / "data" / "generate_synthetic_data.py"
+        subprocess.run([sys.executable, str(gen_script)], check=True)
 
 
 def extract(name: str) -> pd.DataFrame:
@@ -62,10 +72,12 @@ def transform_epfo(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def build_feature_store() -> pd.DataFrame:
-    """Extract + transform all 4 sources, then LOAD (join) into one table."""
-    gst = transform_gst(extract("gst"))
-    upi = transform_upi(extract("upi"))
-    aa = transform_aa(extract("aa"))
+    """Auto-generate data if needed, then Extract + Transform + Load."""
+    _ensure_raw_data()   # <-- yeh line fix hai: pehle data banao
+
+    gst  = transform_gst(extract("gst"))
+    upi  = transform_upi(extract("upi"))
+    aa   = transform_aa(extract("aa"))
     epfo = transform_epfo(extract("epfo"))
 
     feature_store = gst.join([upi, aa, epfo], how="inner")
