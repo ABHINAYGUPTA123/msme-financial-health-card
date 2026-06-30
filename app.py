@@ -917,7 +917,6 @@ else:
     display = display.sort_values("Health Score", ascending=False).reset_index(drop=True)
     st.dataframe(
         display.style
-        .background_gradient(subset=["Health Score"], cmap="YlGn")
         .format({"Health Score":"{:.1f}","Default % ":"{:.1f}%","Revenue":"{:.0f}","Cash Flow":"{:.0f}","Digital":"{:.0f}"}),
         use_container_width=True, height=450,
     )
