@@ -887,8 +887,8 @@ else:
         ))
         fig4.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(1,24,32,0.6)",
-            xaxis=dict(title="Health Score", gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf"), titlefont=dict(color="#7ecfdf")),
-            yaxis=dict(title="Count", gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf"), titlefont=dict(color="#7ecfdf")),
+            xaxis=dict(title=dict(text="Health Score", font=dict(color="#7ecfdf")), gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf")),
+            yaxis=dict(title=dict(text="Count", font=dict(color="#7ecfdf")), gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf")),
             height=300, margin=dict(l=20,r=20,t=20,b=40), showlegend=False,
         )
         st.plotly_chart(fig4, use_container_width=True)
@@ -903,8 +903,8 @@ else:
         ))
         fig5.update_layout(
             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(1,24,32,0.6)",
-            xaxis=dict(title="Health Score", gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf"), titlefont=dict(color="#7ecfdf")),
-            yaxis=dict(title="Default Prob %", gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf"), titlefont=dict(color="#7ecfdf")),
+            xaxis=dict(title=dict(text="Health Score", font=dict(color="#7ecfdf")), gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf")),
+            yaxis=dict(title=dict(text="Default Prob %", font=dict(color="#7ecfdf")), gridcolor="#1a4a57", tickfont=dict(color="#7ecfdf")),
             height=300, margin=dict(l=20,r=20,t=20,b=40), showlegend=False,
         )
         st.plotly_chart(fig5, use_container_width=True)
